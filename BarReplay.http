@@ -1,0 +1,6 @@
+@BarReplay_HostAddress = http://localhost:5245
+
+GET {{BarReplay_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -1,0 +1,45 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+    <input type="datetime-local" id="startTime">
+    <button onclick="startReplay()">Start Replay</button>
+    <button onclick="loadNextBar()">Next</button>
+    <div id="chart" style="width: 1200px; height: 800px;"></div>
+
+    <script>
+        const chart = LightweightCharts.createChart(document.getElementById('chart'), {
+            width: 1200,
+            height: 800,
+            timeScale: {
+                timeVisible: true,
+                secondsVisible: false,
+            },
+        });
+    const series = chart.addSeries(LightweightCharts.CandlestickSeries);
+    let lastTimestamp = null;
+
+    async function startReplay() {
+      const input = document.getElementById('startTime').value;
+      if (!input) return;
+      const res = await fetch(`https://localhost:7036/api/bars/init?start=${input}`);
+      const data = await res.json();
+      series.setData(data);
+      if (data.length > 0) lastTimestamp = data[data.length - 1].time;
+    }
+
+    async function loadNextBar() {
+      if (!lastTimestamp) return;
+      const afterDate = new Date(lastTimestamp * 1000).toISOString();
+      const res = await fetch(`https://localhost:7036/api/bars/next?after=${afterDate}`);
+      const data = await res.json();
+      if (data.length > 0) {
+        series.update(data[0]);
+        lastTimestamp = data[0].time;
+      }
+    }
+    </script>
+</body>
+</html>
