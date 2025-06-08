@@ -10,6 +10,15 @@
     <div id="chart" style="width: 1200px; height: 800px;"></div>
 
     <script>
+        function pad(n) {
+            return n.toString().padStart(2, '0');
+        }
+
+        const now = new Date();
+        const formatted = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        document.getElementById('startTime').value = formatted;
+
+        const serverUrl = window.location.origin;
         const chart = LightweightCharts.createChart(document.getElementById('chart'), {
             width: 1200,
             height: 800,
@@ -18,28 +27,63 @@
                 secondsVisible: false,
             },
         });
-    const series = chart.addSeries(LightweightCharts.CandlestickSeries);
-    let lastTimestamp = null;
 
-    async function startReplay() {
-      const input = document.getElementById('startTime').value;
-      if (!input) return;
-      const res = await fetch(`https://localhost:7036/api/bars/init?start=${input}`);
-      const data = await res.json();
-      series.setData(data);
-      if (data.length > 0) lastTimestamp = data[data.length - 1].time;
-    }
+        const series = chart.addSeries(LightweightCharts.CandlestickSeries, {
+            upColor: '#35ce35',
+            downColor: '#040404',
+            borderVisible: true,
+            borderUpColor: '#040404',
+            borderDownColor: '#040404',
+            wickUpColor: '#040404',
+            wickDownColor: '#040404',
+        });
+        let lastTimestamp = null;
 
-    async function loadNextBar() {
-      if (!lastTimestamp) return;
-      const afterDate = new Date(lastTimestamp * 1000).toISOString();
-      const res = await fetch(`https://localhost:7036/api/bars/next?after=${afterDate}`);
-      const data = await res.json();
-      if (data.length > 0) {
-        series.update(data[0]);
-        lastTimestamp = data[0].time;
-      }
-    }
+        async function startReplay() {
+            const input = document.getElementById('startTime').value;
+            if (!input) return;
+            const res = await fetch(`${serverUrl}/api/bars/init?start=${input}`);
+            const data = await res.json();
+            series.setData(data);
+            if (data.length > 0) {
+                lastTimestamp = data[data.length - 1].time;
+            }
+        }
+
+        async function loadNextBar() {
+            if (!lastTimestamp) return;
+            const afterDate = new Date(lastTimestamp * 1000).toISOString();
+            const res = await fetch(`${serverUrl}/api/bars/next?after=${afterDate}`);
+            const data = await res.json();
+            if (data.length > 0) {
+                series.update(data[0]);
+                lastTimestamp = data[0].time;
+            }
+        }
+
+        let loading = false;
+
+        chart.timeScale().subscribeVisibleLogicalRangeChange(async (range) => {
+            if (loading || !range) return;
+
+            if (range.from < 5) { // close to the left edge
+                loading = true;
+                const oldestBar = series.data()[0];
+                console.log(oldestBar);
+                if (!oldestBar) return;
+
+                const oldestDate = new Date(oldestBar.time * 1000).toISOString();
+                const res = await fetch(`${serverUrl}/api/bars/before?time=${oldestDate}`);
+                const olderBars = await res.json();
+
+                if (olderBars.length > 0) {
+                    // Prepend bars
+                    series.setData([...olderBars, ...series.data()]);
+                }
+
+                loading = false;
+            }
+        });
     </script>
 </body>
 </html>
