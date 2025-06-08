@@ -7,6 +7,7 @@
     <input type="datetime-local" id="startTime">
     <button onclick="startReplay()">Start Replay</button>
     <button onclick="loadNextBar()">Next</button>
+    <button onclick="goToLatest()">»</button>
     <div id="chart" style="width: 1200px; height: 800px;"></div>
 
     <script>
@@ -59,6 +60,10 @@
                 series.update(data[0]);
                 lastTimestamp = data[0].time;
             }
+        }
+
+        async function goToLatest() {
+            chart.timeScale().scrollToRealTime();
         }
 
         let loading = false;
