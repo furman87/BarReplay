@@ -2,13 +2,36 @@
 <html>
 <head>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+    }
+
+    #chart {
+      width: 100vw;
+      height: 100vh;
+    }
+    </style>
 </head>
 <body>
     <input type="datetime-local" id="startTime">
+    <select id="interval">
+      <option value="1" selected>1</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+      <option value="5">5</option>
+      <option value="15">15</option>
+      <option value="30">30</option>
+      <option value="60">60</option>
+    </select>
     <button onclick="startReplay()">Start Replay</button>
     <button onclick="loadNextBar()">Next</button>
     <button onclick="goToLatest()">»</button>
-    <div id="chart" style="width: 1200px; height: 800px;"></div>
+    <div id="chart"></div>
 
     <script>
         function pad(n) {
@@ -21,12 +44,17 @@
 
         const serverUrl = window.location.origin;
         const chart = LightweightCharts.createChart(document.getElementById('chart'), {
-            width: 1200,
-            height: 800,
+            width: window.innerWidth - 25,
+            height: window.innerHeight - 30,
             timeScale: {
                 timeVisible: true,
                 secondsVisible: false,
             },
+            crosshair: {
+                // Change mode from default 'magnet' to 'normal'.
+                // Allows the crosshair to move freely without snapping to datapoints
+                mode: LightweightCharts.CrosshairMode.Normal
+            }
         });
 
         const series = chart.addSeries(LightweightCharts.CandlestickSeries, {
@@ -38,12 +66,14 @@
             wickUpColor: '#040404',
             wickDownColor: '#040404',
         });
+        
         let lastTimestamp = null;
 
         async function startReplay() {
             const input = document.getElementById('startTime').value;
+            const interval = getSelectedInterval();
             if (!input) return;
-            const res = await fetch(`${serverUrl}/api/bars/init?start=${input}`);
+            const res = await fetch(`${serverUrl}/api/bars/${interval}/init?start=${input}`);
             const data = await res.json();
             series.setData(data);
             if (data.length > 0) {
@@ -54,18 +84,41 @@
         async function loadNextBar() {
             if (!lastTimestamp) return;
             const afterDate = new Date(lastTimestamp * 1000).toISOString();
-            const res = await fetch(`${serverUrl}/api/bars/next?after=${afterDate}`);
+            const interval = getSelectedInterval();
+            const res = await fetch(`${serverUrl}/api/bars/${interval}/next?after=${afterDate}`);
             const data = await res.json();
             if (data.length > 0) {
                 series.update(data[0]);
                 lastTimestamp = data[0].time;
+                let formatted = unixToFormattedDate(lastTimestamp);
+                document.getElementById('startTime').value = formatted;
+                console.log("lastTimestamp = " + lastTimestamp + " formatted = " + formatted + " interval = " + interval);
             }
         }
 
         async function goToLatest() {
             chart.timeScale().scrollToRealTime();
         }
+        
+        function unixToFormattedDate(timestamp) {
+            if (!timestamp) return;
 
+            const date = new Date(timestamp * 1000); // convert to ms
+
+            const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+            const day   = date.getUTCDate().toString().padStart(2, '0');
+            const year  = date.getUTCFullYear();
+
+            let hours = date.getUTCHours().toString().padStart(2, '0');
+            const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+        
+        function getSelectedInterval() {
+            return document.getElementById('interval').value;
+        }
+        
         let loading = false;
 
         chart.timeScale().subscribeVisibleLogicalRangeChange(async (range) => {
@@ -78,7 +131,8 @@
                 if (!oldestBar) return;
 
                 const oldestDate = new Date(oldestBar.time * 1000).toISOString();
-                const res = await fetch(`${serverUrl}/api/bars/before?time=${oldestDate}`);
+                const interval = getSelectedInterval();
+                const res = await fetch(`${serverUrl}/api/bars/${interval}/before?time=${oldestDate}`);
                 const olderBars = await res.json();
 
                 if (olderBars.length > 0) {
@@ -89,6 +143,7 @@
                 loading = false;
             }
         });
+
     </script>
 </body>
 </html>

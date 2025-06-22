@@ -3,7 +3,7 @@
     using Microsoft.AspNetCore.Mvc;
 
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/bars/{interval:int}")]
     public class BarsController : ControllerBase
     {
         private readonly BarService _barService;
@@ -14,23 +14,23 @@
         }
 
         [HttpGet("init")]
-        public async Task<IActionResult> GetInitialBars([FromQuery] DateTime start, [FromQuery] int count = 200)
+        public async Task<IActionResult> GetInitialBars(int interval, [FromQuery] DateTime start, [FromQuery] int count = 200)
         {
-            var bars = await _barService.GetInitialBars(start, count);
+            var bars = await _barService.GetInitialBars(start, interval, count);
             return Ok(bars);
         }
 
         [HttpGet("next")]
-        public async Task<IActionResult> GetNextBar([FromQuery] DateTime after)
+        public async Task<IActionResult> GetNextBar(int interval, [FromQuery] DateTime after)
         {
-            var bar = await _barService.GetNextBar(after);
+            var bar = await _barService.GetNextBar(after, interval);
             return Ok(bar == null ? new object[0] : new[] { bar });
         }
 
         [HttpGet("before")]
-        public async Task<IActionResult> GetBarsBefore([FromQuery] DateTime time, [FromQuery] int count = 200)
+        public async Task<IActionResult> GetBarsBefore(int interval, [FromQuery] DateTime time, [FromQuery] int count = 200)
         {
-            var bars = await _barService.GetBarsBefore(time, count);
+            var bars = await _barService.GetBarsBefore(time, interval, count);
             return Ok(bars);
         }
 
